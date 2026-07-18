@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.uv/
+
+# Local configuration — never commit real device addresses.
+.env

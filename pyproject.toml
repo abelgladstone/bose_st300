@@ -1,0 +1,22 @@
+[project]
+name = "bose-st300"
+version = "0.0.2"
+description = "Local web app for the Bose SoundTouch 300, replacing the discontinued Bose app"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0",
+    "requests>=2.31",
+    "zeroconf>=0.132",
+    "websocket-client>=1.7",
+    "gunicorn>=21.2",
+]
+
+[project.scripts]
+bose-st300 = "views.web.app:main"
+
+[tool.setuptools]
+packages = ["soundtouch", "views", "views.web"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

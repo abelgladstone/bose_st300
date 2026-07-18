@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<audiospeakerattributeandsetting>
+    <rear available="true" active="true" wireless="true" controllable="true" />
+    <subwoofer01 available="true" active="true" wireless="true" controllable="true" />
+</audiospeakerattributeandsetting>

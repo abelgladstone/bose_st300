@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<audioproductlevelcontrols>
+    <frontCenterSpeakerLevel value="-10" minValue="-100" maxValue="100" step="10" />
+    <rearSurroundSpeakersLevel value="10" minValue="-100" maxValue="100" step="10" />
+</audioproductlevelcontrols>

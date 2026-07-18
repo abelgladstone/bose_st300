@@ -1,0 +1,15 @@
+# Bose SoundTouch 300 connection settings (used for local `python -m views.web.app`).
+#
+# For container deploys, prefer the BOSE_HOST / BOSE_NAME env vars (see .env.example) —
+# they override anything set here.
+#
+# host is optional: if omitted, the device is discovered over mDNS (_soundtouch._tcp).
+# A configured host skips discovery and is used directly.
+
+[device]
+# host = "192.168.1.50"   # your SoundTouch's IP or hostname; leave unset to autodiscover
+name = "SoundTouch"
+
+[server]
+host = "0.0.0.0"
+port = 5001

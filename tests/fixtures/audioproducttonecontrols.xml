@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<audioproducttonecontrols>
+    <bass value="100" minValue="-100" maxValue="100" step="25" />
+    <treble value="0" minValue="-100" maxValue="100" step="25" />
+</audioproducttonecontrols>

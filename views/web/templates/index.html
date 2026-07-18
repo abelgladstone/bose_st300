@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#181825">
+  <script>
+    // Set the theme before first paint to avoid a flash of the wrong mode.
+    (function () {
+      var t = localStorage.getItem("theme") ||
+        (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="{{ url_for('manifest') }}">
+  <link rel="icon" href="{{ url_for('static', filename='icon.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <title>{{ device_name }}</title>
+  <script>
+    // Mount prefix (e.g. "/bose" behind the reverse proxy, "" when served at root).
+    // Every API and SSE call in app.js is built relative to this.
+    window.BOSE_BASE = "{{ request.script_root }}";
+  </script>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="device">
+        <span class="dot" id="conn" title="connection"></span>
+        <div class="device-text">
+          <h1 id="device-name" title="Click to rename" tabindex="0" spellcheck="false">{{ device_name }}</h1>
+          <span class="power-state" id="power-state">—</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="theme-toggle" title="Toggle light / dark" aria-label="Toggle theme">
+          <svg viewBox="0 0 24 24" id="theme-icon" aria-hidden="true"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" /></svg>
+        </button>
+        <button class="power icon-btn" id="power" title="Power" aria-label="Power">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9" /><path d="M6.5 6.5a8 8 0 1 0 11 0" /></svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="card now-playing" id="now-playing">
+      <div class="np-info">
+        <div class="art" id="art"><div class="art-fallback" id="art-fallback"></div></div>
+        <div class="meta">
+          <div class="track" id="track">—</div>
+          <div class="artist" id="artist"></div>
+          <div class="badge" id="source-badge">—</div>
+        </div>
+      </div>
+      <div class="transport" id="transport">
+        <button data-key="PREV_TRACK" aria-label="Previous">
+          <svg viewBox="0 0 24 24"><path d="M18 5v14L8 12zM6 5v14" /></svg>
+        </button>
+        <button data-key="PLAY_PAUSE" class="primary" aria-label="Play or pause">
+          <svg viewBox="0 0 24 24" id="playpause-icon"><path d="M7 4v16M17 4v16" /></svg>
+        </button>
+        <button data-key="NEXT_TRACK" aria-label="Next">
+          <svg viewBox="0 0 24 24"><path d="M6 5v14l10-7zM18 5v14" /></svg>
+        </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row-label">
+        <label for="volume">Volume</label>
+        <div class="row-actions">
+          <span class="value" id="volume-value">—</span>
+          <button class="mute" id="mute" aria-label="Mute">
+            <svg viewBox="0 0 24 24" id="mute-icon"><path d="M11 5 6 9H3v6h3l5 4z" /><path d="M16 9c1 1 1 5 0 6" /></svg>
+          </button>
+        </div>
+      </div>
+      <input type="range" id="volume" min="0" max="100" step="1" class="slider big">
+    </section>
+
+    <section class="card">
+      <div class="row-label"><span>Source</span></div>
+      <div class="sources" id="sources"></div>
+      <p class="hint">Spotify and Apple Music arrive over Spotify&nbsp;Connect and AirPlay — start them from your phone and they'll show up here.</p>
+    </section>
+
+    <section class="card">
+      <div class="row-label"><span>Speech mode</span></div>
+      <div class="segmented" id="dsp">
+        <button data-mode="AUDIO_MODE_NORMAL">Normal</button>
+        <button data-mode="AUDIO_MODE_DIALOG">Dialog</button>
+      </div>
+      <p class="hint" id="dsp-hint">Dialog lifts voices out of the mix for TV.</p>
+    </section>
+
+    <section class="card">
+      <div class="row-label">
+        <label for="bass">Bass</label>
+        <span class="value" id="bass-value">—</span>
+      </div>
+      <div class="bipolar">
+        <input type="range" id="bass" class="slider">
+        <div class="scale"><span id="bass-min">—</span><span>0</span><span id="bass-max">—</span></div>
+      </div>
+
+      <div class="row-label spaced">
+        <label for="treble">Treble</label>
+        <span class="value" id="treble-value">—</span>
+      </div>
+      <div class="bipolar">
+        <input type="range" id="treble" class="slider">
+        <div class="scale"><span id="treble-min">—</span><span>0</span><span id="treble-max">—</span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row-label"><span>Speakers</span></div>
+      <div class="speakers" id="speakers"></div>
+
+      <div class="row-label spaced">
+        <label for="center">Center</label>
+        <span class="value" id="center-value">—</span>
+      </div>
+      <div class="bipolar">
+        <input type="range" id="center" class="slider">
+        <div class="scale"><span id="center-min">—</span><span>0</span><span id="center-max">—</span></div>
+      </div>
+
+      <div class="row-label spaced">
+        <label for="surround">Surround</label>
+        <span class="value" id="surround-value">—</span>
+      </div>
+      <div class="bipolar">
+        <input type="range" id="surround" class="slider">
+        <div class="scale"><span id="surround-min">—</span><span>0</span><span id="surround-max">—</span></div>
+      </div>
+      <p class="hint">These trim each speaker around its neutral 0 — negative is quieter, positive is louder.</p>
+    </section>
+
+    <footer id="footer"></footer>
+    <div class="about-bar">
+      <button type="button" class="about-btn" id="about-btn">About · v{{ version }}</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="about-modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="about-title">
+      <div class="modal-head">
+        <h2 id="about-title">About</h2>
+        <button type="button" class="modal-close" id="about-close" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body" id="about-body"></div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
