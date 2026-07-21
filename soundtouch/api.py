@@ -8,6 +8,7 @@ from xml.etree.ElementTree import Element, SubElement, fromstring, tostring
 
 import requests
 
+from soundtouch.album_art import AlbumArtLookup
 from soundtouch.models import (
     DeviceInfo,
     DspControls,
@@ -73,10 +74,11 @@ class State:
 
 
 class SoundTouchClient:
-    def __init__(self, host: str, timeout: float = 5.0):
+    def __init__(self, host: str, timeout: float = 5.0, album_art: AlbumArtLookup | None = None):
         self.host = host
         self.timeout = timeout
         self._session = requests.Session()
+        self._album_art = album_art or AlbumArtLookup()
 
     def _url(self, path: str) -> str:
         return f"http://{self.host}:{API_PORT}/{path.lstrip('/')}"
@@ -115,7 +117,21 @@ class SoundTouchClient:
         return DeviceInfo.from_xml(self.get("info"))
 
     def now_playing(self) -> NowPlaying:
-        return NowPlaying.from_xml(self.get("now_playing"))
+        return self._enrich_art(NowPlaying.from_xml(self.get("now_playing")))
+
+    def _enrich_art(self, now_playing: NowPlaying) -> NowPlaying:
+        """Fill in art_url from an external lookup when the device has none.
+
+        AirPlay in particular reports no art at all; other sources may too. Only
+        ever used when the device itself came back empty, and only for a confident
+        match -- see AlbumArtLookup.
+        """
+        if now_playing.art_url or not (now_playing.artist or now_playing.track):
+            return now_playing
+        art_url = self._album_art.lookup(now_playing.artist, now_playing.track)
+        if art_url:
+            now_playing.art_url = art_url
+        return now_playing
 
     def volume(self) -> Volume:
         return Volume.from_xml(self.get("volume"))

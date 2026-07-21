@@ -13,6 +13,7 @@ from xml.etree.ElementTree import fromstring
 
 import websocket
 
+from soundtouch.album_art import AlbumArtLookup
 from soundtouch.api import NOTIFY_PORT
 from soundtouch.models import DspControls, LevelControls, NowPlaying, ToneControls, Volume
 
@@ -32,12 +33,13 @@ _HANDLERS = {
 class NotificationBridge:
     """Maintains a WebSocket to the speaker and fans updates out to subscribers."""
 
-    def __init__(self, host: str):
+    def __init__(self, host: str, album_art: AlbumArtLookup | None = None):
         self.host = host
         self._subscribers: set[queue.Queue] = set()
         self._lock = threading.Lock()
         self._ws: websocket.WebSocketApp | None = None
         self._thread: threading.Thread | None = None
+        self._album_art = album_art or AlbumArtLookup()
 
     def subscribe(self) -> queue.Queue:
         q: queue.Queue = queue.Queue(maxsize=50)
@@ -79,6 +81,10 @@ class NotificationBridge:
             except Exception:
                 self._publish("refresh", {"reason": child.tag})
                 continue
+            if name == "now_playing" and not model.art_url and (model.artist or model.track):
+                art_url = self._album_art.lookup(model.artist, model.track)
+                if art_url:
+                    model.art_url = art_url
             from dataclasses import asdict
 
             self._publish(name, asdict(model))

@@ -8,6 +8,7 @@ import queue
 
 from flask import Flask, Response, jsonify, render_template, request, url_for
 
+from soundtouch.album_art import AlbumArtLookup
 from soundtouch.api import SoundTouchClient, SoundTouchError
 from soundtouch.discovery import Config, resolve_host
 from soundtouch.notify import NotificationBridge
@@ -43,8 +44,9 @@ def create_app(host: str | None = None) -> Flask:
     app.config["TEMPLATES_AUTO_RELOAD"] = True
     app.jinja_env.auto_reload = True
     app.wsgi_app = PrefixMiddleware(app.wsgi_app)
-    client = SoundTouchClient(device_host)
-    bridge = NotificationBridge(device_host)
+    album_art = AlbumArtLookup()
+    client = SoundTouchClient(device_host, album_art=album_art)
+    bridge = NotificationBridge(device_host, album_art=album_art)
     bridge.start()
 
     app.config["CLIENT"] = client
