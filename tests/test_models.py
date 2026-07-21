@@ -195,6 +195,31 @@ class TestSources(unittest.TestCase):
         self.assertFalse(any(k.startswith("SPOTIFY") for k in keys))
         self.assertFalse(any(k.startswith("AIRPLAY") for k in keys))
 
+    def test_selectable_dedupes_repeated_sources(self):
+        # The speaker has been observed returning the same source many times in one
+        # response under heavy concurrent connection load.
+        xml = """<sources deviceID="X">
+            <sourceItem source="PRODUCT" sourceAccount="TV" status="READY" isLocal="true" />
+            <sourceItem source="PRODUCT" sourceAccount="TV" status="UNAVAILABLE" isLocal="true" />
+            <sourceItem source="PRODUCT" sourceAccount="TV" status="UNAVAILABLE" isLocal="true" />
+            <sourceItem source="BLUETOOTH" status="UNAVAILABLE" isLocal="true" />
+            <sourceItem source="BLUETOOTH" status="UNAVAILABLE" isLocal="true" />
+        </sources>"""
+        sources = SourceList.from_xml(fromstring(xml))
+        selectable = sources.selectable()
+        keys = [s.key for s in selectable]
+        self.assertEqual(keys.count("PRODUCT/TV"), 1)
+        self.assertEqual(keys.count("BLUETOOTH"), 1)
+
+    def test_selectable_prefers_ready_duplicate_over_earlier_unavailable_one(self):
+        xml = """<sources deviceID="X">
+            <sourceItem source="PRODUCT" sourceAccount="TV" status="UNAVAILABLE" isLocal="true" />
+            <sourceItem source="PRODUCT" sourceAccount="TV" status="READY" isLocal="true" />
+        </sources>"""
+        sources = SourceList.from_xml(fromstring(xml))
+        (tv,) = [s for s in sources.selectable() if s.key == "PRODUCT/TV"]
+        self.assertTrue(tv.is_ready)
+
 
 if __name__ == "__main__":
     unittest.main()

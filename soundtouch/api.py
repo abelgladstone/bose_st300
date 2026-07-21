@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
+from urllib.parse import urlparse
 from xml.etree.ElementTree import Element, SubElement, fromstring, tostring
 
 import requests
 
+from soundtouch.album_art import AlbumArtLookup
 from soundtouch.models import (
     DeviceInfo,
     DspControls,
@@ -73,10 +75,11 @@ class State:
 
 
 class SoundTouchClient:
-    def __init__(self, host: str, timeout: float = 5.0):
+    def __init__(self, host: str, timeout: float = 5.0, album_art: AlbumArtLookup | None = None):
         self.host = host
         self.timeout = timeout
         self._session = requests.Session()
+        self._album_art = album_art or AlbumArtLookup()
 
     def _url(self, path: str) -> str:
         return f"http://{self.host}:{API_PORT}/{path.lstrip('/')}"
@@ -115,7 +118,21 @@ class SoundTouchClient:
         return DeviceInfo.from_xml(self.get("info"))
 
     def now_playing(self) -> NowPlaying:
-        return NowPlaying.from_xml(self.get("now_playing"))
+        return self._enrich_art(NowPlaying.from_xml(self.get("now_playing")))
+
+    def _enrich_art(self, now_playing: NowPlaying) -> NowPlaying:
+        """Fill in art_url from an external lookup when the device has none.
+
+        AirPlay in particular reports no art at all; other sources may too. Only
+        ever used when the device itself came back empty, and only for a confident
+        match -- see AlbumArtLookup.
+        """
+        if now_playing.art_url or not (now_playing.artist or now_playing.track):
+            return now_playing
+        art_url = self._album_art.lookup(now_playing.artist, now_playing.track)
+        if art_url:
+            now_playing.art_url = art_url
+        return now_playing
 
     def volume(self) -> Volume:
         return Volume.from_xml(self.get("volume"))
@@ -134,6 +151,27 @@ class SoundTouchClient:
 
     def sources(self) -> SourceList:
         return SourceList.from_xml(self.get("sources"))
+
+    def is_device_art(self, url: str) -> bool:
+        """Whether a now_playing art_url is hosted on the speaker itself.
+
+        The speaker only accepts connections from its own subnet (see
+        bose_soundtouch_relay's FINDINGS.md), so a browser off that subnet can't load
+        such a URL directly -- it must be proxied through this server, which does sit
+        on the speaker's network. Externally-hosted art (e.g. the iTunes fallback) is
+        already reachable from any browser and must not be proxied.
+        """
+        return bool(url) and urlparse(url).hostname == self.host
+
+    def fetch_art(self, url: str) -> tuple[bytes, str]:
+        if not self.is_device_art(url):
+            raise SoundTouchError("refusing to proxy non-device art url")
+        try:
+            response = self._session.get(url, timeout=self.timeout)
+            response.raise_for_status()
+        except requests.RequestException as err:
+            raise SoundTouchError(f"GET art failed: {err}") from err
+        return response.content, response.headers.get("Content-Type", "image/jpeg")
 
     def state(self) -> State:
         return State(

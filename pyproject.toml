@@ -1,6 +1,6 @@
 [project]
 name = "bose-st300"
-version = "0.0.2"
+version = "0.0.3"
 description = "Local web app for the Bose SoundTouch 300, replacing the discontinued Bose app"
 requires-python = ">=3.11"
 dependencies = [

@@ -4,9 +4,23 @@ Surfaced by the /api/about endpoint and the UI's About dialog. Keep the top entr
 version in sync with pyproject.toml and the git release tag.
 """
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 RELEASE_NOTES = [
+    {
+        "version": "0.0.3",
+        "date": "2026-07-21",
+        "title": "Album art fixes",
+        "notes": [
+            "Album art for AirPlay now shows up: when the device has none, look it "
+            "up on iTunes, but only on a confident artist/track match.",
+            "Fixed device-hosted album art not loading in the browser — it's now "
+            "proxied through the server instead of linking to the speaker directly, "
+            "which only the server (not the browser) can reach.",
+            "Source list no longer shows duplicate buttons when the speaker repeats "
+            "entries in its /sources response.",
+        ],
+    },
     {
         "version": "0.0.2",
         "date": "2026-07-18",
