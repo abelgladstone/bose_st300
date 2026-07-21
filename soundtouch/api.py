@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
+from urllib.parse import urlparse
 from xml.etree.ElementTree import Element, SubElement, fromstring, tostring
 
 import requests
@@ -150,6 +151,27 @@ class SoundTouchClient:
 
     def sources(self) -> SourceList:
         return SourceList.from_xml(self.get("sources"))
+
+    def is_device_art(self, url: str) -> bool:
+        """Whether a now_playing art_url is hosted on the speaker itself.
+
+        The speaker only accepts connections from its own subnet (see
+        bose_soundtouch_relay's FINDINGS.md), so a browser off that subnet can't load
+        such a URL directly -- it must be proxied through this server, which does sit
+        on the speaker's network. Externally-hosted art (e.g. the iTunes fallback) is
+        already reachable from any browser and must not be proxied.
+        """
+        return bool(url) and urlparse(url).hostname == self.host
+
+    def fetch_art(self, url: str) -> tuple[bytes, str]:
+        if not self.is_device_art(url):
+            raise SoundTouchError("refusing to proxy non-device art url")
+        try:
+            response = self._session.get(url, timeout=self.timeout)
+            response.raise_for_status()
+        except requests.RequestException as err:
+            raise SoundTouchError(f"GET art failed: {err}") from err
+        return response.content, response.headers.get("Content-Type", "image/jpeg")
 
     def state(self) -> State:
         return State(

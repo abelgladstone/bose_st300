@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import queue
+from urllib.parse import quote
 
 from flask import Flask, Response, jsonify, render_template, request, url_for
 
@@ -98,9 +99,24 @@ def create_app(host: str | None = None) -> Flask:
             }
         )
 
+    def _proxy_art_url(url: str, prefix: str) -> str:
+        # The speaker only answers requests from its own subnet, so a browser off
+        # that subnet can't load device-hosted art directly -- route it through
+        # /api/art, which this server (already on the speaker's network) can reach.
+        if not client.is_device_art(url):
+            return url
+        return f"{prefix}/api/art?src={quote(url, safe='')}"
+
     @app.get("/api/state")
     def state():
-        return jsonify(client.state().to_dict())
+        data = client.state().to_dict()
+        data["now_playing"]["art_url"] = _proxy_art_url(data["now_playing"]["art_url"], request.script_root)
+        return jsonify(data)
+
+    @app.get("/api/art")
+    def art_proxy():
+        content, content_type = client.fetch_art(request.args.get("src", ""))
+        return Response(content, mimetype=content_type)
 
     @app.post("/api/volume")
     def set_volume():
@@ -148,6 +164,8 @@ def create_app(host: str | None = None) -> Flask:
 
     @app.get("/api/events")
     def events():
+        prefix = request.script_root
+
         def stream():
             q = bridge.subscribe()
             try:
@@ -158,6 +176,8 @@ def create_app(host: str | None = None) -> Flask:
                     except queue.Empty:
                         yield ": keepalive\n\n"  # keeps proxies from dropping the stream
                         continue
+                    if message["event"] == "now_playing":
+                        message["data"]["art_url"] = _proxy_art_url(message["data"].get("art_url", ""), prefix)
                     yield f"event: {message['event']}\ndata: {json.dumps(message['data'])}\n\n"
             finally:
                 bridge.unsubscribe(q)
