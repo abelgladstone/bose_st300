@@ -313,6 +313,18 @@ class SourceList:
         Streaming sources (Spotify, AirPlay) are excluded: post-cloud-shutdown they
         arrive via Spotify Connect / AirPlay, which the speaker switches to on its own
         when a phone pushes audio. There is nothing useful to select here.
+
+        The speaker has been observed returning the same source repeated dozens of
+        times in one /sources response (seen after heavy concurrent connection
+        activity) -- dedupe by key, keeping the first occurrence unless a later
+        duplicate is READY and the one seen so far isn't.
         """
         selectable_keys = {"PRODUCT/TV", "PRODUCT/HDMI_1", "BLUETOOTH"}
-        return [s for s in self.items if s.key in selectable_keys]
+        by_key: dict[str, Source] = {}
+        for item in self.items:
+            if item.key not in selectable_keys:
+                continue
+            existing = by_key.get(item.key)
+            if existing is None or (item.is_ready and not existing.is_ready):
+                by_key[item.key] = item
+        return list(by_key.values())
